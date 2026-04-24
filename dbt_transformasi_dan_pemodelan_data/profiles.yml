@@ -1,0 +1,7 @@
+classicmodels_dw:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: 'classicmodels.duckdb'
+      threads: 4
