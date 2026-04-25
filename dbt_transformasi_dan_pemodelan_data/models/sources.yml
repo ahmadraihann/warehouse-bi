@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: inventory
+    schema: main
+    description: "Inventory data"
+    tables:
+      - name: products
+        description: ""
+      - name: vendors
+        description: ""
+      - name: stores
+        description: ""
+      - name: purchases
+        description: ""
+      - name: purchase_items
+        description: ""
+      - name: sales
+        description: ""
+      - name: inventories
+        description: ""

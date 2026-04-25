@@ -1,39 +1,147 @@
 import pandas as pd
-from db import engine
-import argparse
-from sqlalchemy import text
-from datetime import datetime
+import duckdb
 import os
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fresh", action="store_true", help="Truncate all tables before load")
+    parser.add_argument("--fresh", action="store_true")
     return parser.parse_args()
 
-def truncate_tables():
-    with engine.connect() as conn:
-        conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "../dbt_transformasi_dan_pemodelan_data", "inventory.duckdb")
 
-        conn.execute(text("TRUNCATE TABLE inventories"))
-        conn.execute(text("TRUNCATE TABLE sales"))
-        conn.execute(text("TRUNCATE TABLE purchase_items"))
-        conn.execute(text("TRUNCATE TABLE purchases"))
-        conn.execute(text("TRUNCATE TABLE stores"))
-        conn.execute(text("TRUNCATE TABLE vendors"))
-        conn.execute(text("TRUNCATE TABLE products"))
+def drop_tables():
+    con = duckdb.connect(DB_PATH)
 
-        conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
-        conn.commit()
+    tables = [
+        "purchase_items",
+        "sales",
+        "purchases",
+        "stores",
+        "vendors",
+        "products"
+    ]
 
-# =========================
-# 🔹 LOAD DIMENSIONS
-# =========================
+    for t in tables:
+        try:
+            con.execute(f"DROP TABLE IF EXISTS {t}")
+            print(f"Dropped {t}")
+        except Exception as e:
+            print(f"Skip {t}: {e}")
+
+    con.close()
+
+def create_tables():
+    con = duckdb.connect(DB_PATH)
+
+    # =====================
+    # PRODUCTS
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS products (
+        product_id INTEGER PRIMARY KEY,
+        description TEXT,
+        size TEXT,
+        volume INTEGER,
+        classification INTEGER
+    )
+    """)
+
+    # =====================
+    # VENDORS
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS vendors (
+        vendor_id INTEGER PRIMARY KEY,
+        vendor_name TEXT
+    )
+    """)
+
+    # =====================
+    # STORES
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS stores (
+        store_id INTEGER PRIMARY KEY,
+        city TEXT
+    )
+    """)
+
+    # =====================
+    # PURCHASES (HEADER)
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS purchases (
+        purchase_id INTEGER PRIMARY KEY,
+        vendor_id INTEGER,
+        po_number INTEGER,
+        po_date DATE,
+        invoice_date DATE,
+        pay_date DATE
+    )
+    """)
+
+    # =====================
+    # PURCHASE ITEMS (FACT)
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS purchase_items (
+        purchase_item_id INTEGER PRIMARY KEY,
+        purchase_id INTEGER,
+        store_id INTEGER,
+        product_id INTEGER,
+        quantity INTEGER,
+        purchase_price DOUBLE,
+        total_amount DOUBLE,
+        receiving_date DATE
+    )
+    """)
+
+    # =====================
+    # SALES
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS sales (
+        sales_id INTEGER PRIMARY KEY,
+        store_id INTEGER,
+        product_id INTEGER,
+        sales_date DATE,
+        quantity INTEGER,
+        sales_price DOUBLE,
+        total_amount DOUBLE,
+        excise_tax DOUBLE
+    )
+    """)
+
+    # =====================
+    # INVENTORY SNAPSHOT
+    # =====================
+    con.execute("""
+    CREATE TABLE IF NOT EXISTS inventories (
+        store_id INTEGER,
+        product_id INTEGER,
+        quantity INTEGER,
+        last_updated DATE,
+        PRIMARY KEY (store_id, product_id)
+    )
+    """)
+
+    con.close()
 
 def load_products():
-    df = pd.read_csv(os.path.join(BASE_DIR, "data", "2017PurchasePricesDec.csv"))
+    con = duckdb.connect(DB_PATH)
 
+    # =========================
+    # 1. READ SOURCE
+    # =========================
+    df = pd.read_csv(
+        os.path.join(BASE_DIR, "data", "2017PurchasePricesDec.csv")
+    )
+
+    # =========================
+    # 2. CLEAN + RENAME
+    # =========================
     df = df.rename(columns={
         "Brand": "product_id",
         "Description": "description",
@@ -50,175 +158,216 @@ def load_products():
         "classification"
     ]]
 
+    # cleaning numeric issue ("Unknown", etc)
     df["volume"] = pd.to_numeric(df["volume"], errors="coerce")
+    df["classification"] = pd.to_numeric(df["classification"], errors="coerce")
 
     df = df.drop_duplicates(subset=["product_id"])
 
-    df.to_sql("products", engine, if_exists="append", index=False)
+    # =========================
+    # 3. SURROGATE KEY
+    # =========================
+    df = df.sort_values("product_id")
+
+    # reorder columns
+    df = df[[
+        "product_id",
+        "description",
+        "size",
+        "volume",
+        "classification"
+    ]]
+
+    # =========================
+    # 4. LOAD TO DUCKDB
+    # =========================
+    con.register("df", df)
+
+    con.execute("""
+    INSERT INTO products
+    SELECT * FROM df
+    """)
+
+    con.close()
+
+    print("✅ products loaded")
 
 def load_vendors():
-    import pandas as pd
-    from db import engine
+    con = duckdb.connect(DB_PATH)
 
-    df = pd.read_csv(os.path.join(BASE_DIR, "data", "PurchasesFINAL12312016.csv"))
+    df = pd.read_csv("data/PurchasesFINAL12312016.csv")
     df.columns = df.columns.str.strip()
 
-    vendors = df[["VendorNumber", "VendorName"]].copy()
-    vendors["VendorName"] = vendors["VendorName"].str.strip()
+    df = df[["VendorNumber", "VendorName"]].copy()
+    df = df.drop_duplicates(subset=["VendorNumber"])
 
-    vendors.columns = ["vendor_id", "vendor_name"]
-    vendors = vendors.drop_duplicates(subset=["vendor_id"])
+    df = df.rename(columns={
+        "VendorNumber": "vendor_id",
+        "VendorName": "vendor_name"
+    })
 
-    vendors.to_sql("vendors", engine, if_exists="append", index=False)
+    df = df.sort_values("vendor_id")
+
+    df = df[["vendor_id","vendor_name"]]
+
+    con.register("df", df)
+    con.execute("INSERT INTO vendors SELECT * FROM df")
+
+    con.close()
+
+    print("✅ vendors loaded")
 
 def load_stores():
-    df = pd.read_csv(os.path.join(BASE_DIR, "data", "EndInvFINAL12312016.csv"))
+    con = duckdb.connect(DB_PATH)
 
-    stores = df[["Store", "City"]].drop_duplicates()
-    stores["City"] = stores["City"].str.strip()
-    stores.columns = ["store_id", "city"]
-    stores = stores.drop_duplicates(subset=["store_id"])
+    df = pd.read_csv("data/EndInvFINAL12312016.csv")
 
-    stores.to_sql("stores", engine, if_exists="append", index=False)
+    df = df[["Store","City"]].drop_duplicates()
 
-# =========================
-# 🔹 PURCHASES
-# =========================
+    df = df.rename(columns={
+        "Store": "store_id",
+        "City": "city"
+    })
+
+    df["city"] = df["city"].str.strip()
+
+    df = df.sort_values("store_id")
+
+    df = df[["store_id","city"]]
+
+    con.register("df", df)
+    con.execute("INSERT INTO stores SELECT * FROM df")
+
+    con.close()
+
+    print("✅ stores loaded")
 
 def load_purchases():
-    df = pd.read_csv(os.path.join(BASE_DIR, "data", "InvoicePurchases12312016.csv"))
+    con = duckdb.connect(DB_PATH)
 
-    purchases = df[[
-        "VendorNumber", "PONumber", "PODate", "InvoiceDate", "PayDate"
+    df = pd.read_csv("data/InvoicePurchases12312016.csv")
+
+    df = df[[
+        "VendorNumber","PONumber","PODate","InvoiceDate","PayDate"
     ]].drop_duplicates()
 
-    purchases.columns = [
-        "vendor_id", "po_number", "po_date", "invoice_date", "pay_date"
-    ]
+    df = df.rename(columns={
+        "VendorNumber": "vendor_id",
+        "PONumber": "po_number",
+        "PODate": "po_date",
+        "InvoiceDate": "invoice_date",
+        "PayDate": "pay_date"
+    })
 
-    purchases.to_sql("purchases", engine, if_exists="append", index=False)
+    vendors = con.execute("SELECT vendor_id FROM vendors").df()
+
+    df = df.merge(vendors, on="vendor_id", how="inner")
+
+    df = df.sort_values("po_number")
+    df["purchase_id"] = range(1, len(df) + 1)
+
+    df = df[[
+        "purchase_id","vendor_id","po_number",
+        "po_date","invoice_date","pay_date"
+    ]]
+
+    con.register("df", df)
+    con.execute("INSERT INTO purchases SELECT * FROM df")
+
+    con.close()
+
+    print("✅ purchases loaded")
 
 def load_purchase_items():
-    df = pd.read_csv(os.path.join(BASE_DIR, "data", "PurchasesFINAL12312016.csv"))
+    con = duckdb.connect(DB_PATH)
 
-    items = df[[
-        "Store", "Brand", "PONumber", "Quantity", "PurchasePrice", "Dollars", "ReceivingDate"
+    df = pd.read_csv("data/PurchasesFINAL12312016.csv")
+
+    df = df.rename(columns={
+        "Store": "store_id",
+        "Brand": "product_id",
+        "PONumber": "po_number"
+    })
+
+    purchases = con.execute("SELECT purchase_id, po_number FROM purchases").df()
+    stores = con.execute("SELECT store_id FROM stores").df()
+    products = con.execute("SELECT product_id FROM products").df()
+
+    df = df.merge(purchases, on="po_number", how="inner")
+    df = df.merge(stores, on="store_id", how="inner")
+    df = df.merge(products, on="product_id", how="inner")
+
+    df = df.rename(columns={
+        "Quantity": "quantity",
+        "PurchasePrice": "purchase_price",
+        "Dollars": "total_amount",
+        "ReceivingDate": "receiving_date"
+    })
+
+    df["purchase_item_id"] = range(1, len(df) + 1)
+
+    df = df[[
+        "purchase_item_id","purchase_id",
+        "store_id","product_id",
+        "quantity","purchase_price",
+        "total_amount","receiving_date"
     ]]
 
-    items.columns = [
-        "store_id", "product_id", "po_number", "quantity", "purchase_price", "total_amount", "receiving_date"
-    ]
+    con.register("df", df)
+    con.execute("INSERT INTO purchase_items SELECT * FROM df")
 
-    # 🔥 JOIN ke purchases untuk dapat purchase_id
-    mapping = pd.read_sql(
-        "SELECT purchase_id, po_number FROM purchases",
-        engine
-    )
+    con.close()
 
-    items = items.merge(mapping, on="po_number", how="inner")
-
-    # 🔥 ambil hanya kolom yang sesuai schema
-    items = items[[
-        "purchase_id", "store_id", "product_id", "quantity",
-        "purchase_price", "total_amount", "receiving_date"
-    ]]
-
-    items.to_sql("purchase_items", engine, if_exists="append", index=False)
-
-# =========================
-# 🔹 SALES
-# =========================
+    print("✅ purchase_items loaded")
 
 def load_sales():
-    df = pd.read_csv(os.path.join(BASE_DIR, "data", "SalesFINAL12312016.csv"))
+    con = duckdb.connect(DB_PATH)
 
-    sales = df[[
-        "Store", "Brand", "SalesDate", "SalesQuantity", "SalesPrice", "SalesDollars", "ExciseTax"
+    df = pd.read_csv("data/SalesFINAL12312016.csv")
+
+    df["SalesDate"] = pd.to_datetime(
+        df["SalesDate"],
+        format="%m/%d/%Y",
+        errors="coerce"
+    ).dt.date
+
+    df = df.rename(columns={
+        "Store": "store_id",
+        "Brand": "product_id",
+        "SalesDate": "sales_date",
+        "SalesQuantity": "quantity",
+        "SalesPrice": "sales_price",
+        "SalesDollars": "total_amount",
+        "ExciseTax": "excise_tax"
+    })
+
+    df["sales_id"] = range(1, len(df) + 1)
+
+    df = df[[
+        "sales_id","store_id","product_id",
+        "sales_date","quantity",
+        "sales_price","total_amount","excise_tax"
     ]]
 
-    sales.columns = [
-        "store_id", "product_id", "sales_date", "quantity", "sales_price", "total_amount", "excise_tax"
-    ]
+    con.register("df", df)
+    con.execute("INSERT INTO sales SELECT * FROM df")
 
-    for idx, row in sales.iterrows():
-        sales.at[idx, "sales_date"] = datetime.strptime(
-            row["sales_date"], "%m/%d/%Y"
-        ).date()
+    con.close()
 
-    sales.to_sql("sales", engine, if_exists="append", index=False)
+    print("✅ sales loaded")
 
-# =========================
-# 🔹 INVENTORIES
-# =========================
-
-def load_inventories():
-    query = """
-    INSERT INTO inventories (store_id, product_id, quantity, last_updated)
-    SELECT 
-        store_id,
-        product_id,
-        SUM(delta_qty) AS quantity,
-        MAX(last_updated) AS last_updated
-    FROM (
-        SELECT 
-            store_id,
-            product_id,
-            quantity AS delta_qty,
-            receiving_date AS last_updated
-        FROM purchase_items
-
-        UNION ALL
-
-        SELECT 
-            store_id,
-            product_id,
-            -quantity AS delta_qty,
-            sales_date AS last_updated
-        FROM sales
-    ) t
-    GROUP BY store_id, product_id
-    ON DUPLICATE KEY UPDATE
-        quantity = VALUES(quantity),
-        last_updated = VALUES(last_updated);
-    """
-
-    with engine.begin() as conn:
-        conn.execute(text(query))   # 🔥 FIX DI SINI
-
-# =========================
-# 🚀 RUN PIPELINE
-# =========================
-
-def run():
+if __name__ == "__main__":
     args = parse_args()
 
     if args.fresh:
-        print("⚠️ Fresh mode ON: clearing tables...")
-        truncate_tables()
-        
-    print("Loading products...")
+        print("🔥 FRESH MODE ON - Dropping all tables...")
+        drop_tables()
+
+    create_tables()
     load_products()
-
-    print("Loading vendors...")
     load_vendors()
-
-    print("Loading stores...")
     load_stores()
-
-    print("Loading purchases...")
     load_purchases()
-
-    print("Loading purchase_items...")
     load_purchase_items()
-
-    print("Loading sales...")
     load_sales()
-
-    print("Loading inventory...")
-    load_inventories()
-
-    print("DONE ✅")
-
-
-if __name__ == "__main__":
-    run()
+    print("Schema created successfully")

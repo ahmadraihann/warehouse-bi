@@ -1,7 +1,7 @@
-classicmodels_dw:
+inventory:
   target: dev
   outputs:
     dev:
       type: duckdb
-      path: 'classicmodels.duckdb'
+      path: 'inventory.duckdb'
       threads: 4
