@@ -1,0 +1,82 @@
+version: 2
+
+models:
+  - name: int_inventories
+    description: "Intermediate model for inventory calculation, combining purchases and sales to determine daily on-hand quantity."
+    columns:
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+      - name: store_id
+        description: "Foreign key to the store."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_stores')
+              field: store_id
+      - name: date_key
+        description: "Surrogate key for the date in YYYYMMDD format."
+      - name: qty_in
+        description: "Total quantity received on this date."
+      - name: qty_out
+        description: "Total quantity sold on this date."
+      - name: on_hand_quantity
+        description: "Cumulative quantity on hand for this product and store."
+
+  - name: int_products
+    description: "Intermediate product model."
+    columns:
+      - name: product_id
+        description: "Primary key for the product."
+        tests:
+          - unique
+          - not_null
+
+  - name: int_purchases
+    description: "Intermediate purchase headers model."
+    columns:
+      - name: purchase_id
+        description: "Primary key for the purchase."
+        tests:
+          - unique
+          - not_null
+
+  - name: int_purchase_items
+    description: "Intermediate purchase line items model."
+    columns:
+      - name: purchase_item_id
+        description: "Primary key for the purchase item."
+        tests:
+          - unique
+          - not_null
+
+  - name: int_sales
+    description: "Intermediate sales transaction model."
+    columns:
+      - name: sales_id
+        description: "Primary key for the sales transaction."
+        tests:
+          - unique
+          - not_null
+
+  - name: int_stores
+    description: "Intermediate store model."
+    columns:
+      - name: store_id
+        description: "Primary key for the store."
+        tests:
+          - unique
+          - not_null
+
+  - name: int_vendors
+    description: "Intermediate vendor model."
+    columns:
+      - name: vendor_id
+        description: "Primary key for the vendor."
+        tests:
+          - unique
+          - not_null

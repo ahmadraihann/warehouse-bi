@@ -1,3 +1,5 @@
+{{ config(materialized='table') }}
+
 select
     -- surrogate key (unique per version)
     {{ dbt_utils.generate_surrogate_key([

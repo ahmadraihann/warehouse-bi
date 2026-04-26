@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Dimension model for dates, covering 2003 to 2006."
+    columns:
+      - name: date_id
+        description: "Primary key for the date."
+        tests:
+          - unique
+          - not_null
+      - name: full_date
+        description: "Full date value."
+      - name: year
+        description: "Year of the date."
+      - name: quarter
+        description: "Quarter of the date."
+      - name: month
+        description: "Month of the date."
+      - name: month_name
+        description: "Full name of the month."
+      - name: week_of_year
+        description: "ISO week of the year."
+      - name: day_of_month
+        description: "Day of the month."
+      - name: day_of_week
+        description: "Day of the week (0=Sunday, 6=Saturday)."
+      - name: day_name
+        description: "Full name of the day."
+      - name: is_weekend
+        description: "Boolean flag for weekend days."
+
+  - name: dim_product
+    description: "Dimension model for products, implementing Type 2 Slowly Changing Dimension (SCD)."
+    columns:
+      - name: product_key
+        description: "Surrogate key for the product version."
+        tests:
+          - unique
+          - not_null
+      - name: product_id
+        description: "Natural key for the product."
+      - name: brand_id
+        description: "ID of the brand."
+      - name: brand_name
+        description: "Name of the brand."
+      - name: description
+        description: "Description of the product."
+      - name: size
+        description: "Size of the product."
+      - name: volume
+        description: "Volume of the product."
+      - name: size_category
+        description: "Category based on volume."
+        tests:
+          - accepted_values:
+              values: ['Small', 'Medium', 'Large']
+      - name: valid_from
+        description: "Start date of the record validity."
+      - name: valid_to
+        description: "End date of the record validity."
+      - name: is_current
+        description: "Flag indicating if the record is the current version."
+
+  - name: dim_store
+    description: "Dimension model for stores."
+    columns:
+      - name: store_key
+        description: "Surrogate key for the store."
+        tests:
+          - unique
+          - not_null
+      - name: store_id
+        description: "Natural key for the store."
+      - name: city
+        description: "City where the store is located."
+
+  - name: dim_vendors
+    description: "Dimension model for vendors."
+    columns:
+      - name: vendor_key
+        description: "Surrogate key for the vendor."
+        tests:
+          - unique
+          - not_null
+      - name: vendor_id
+        description: "Natural key for the vendor."
+      - name: vendor_name
+        description: "Name of the vendor."
+      - name: vendor_contact
+        description: "Contact information for the vendor."
+      - name: vendor_address
+        description: "Address of the vendor."

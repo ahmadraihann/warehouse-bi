@@ -1,0 +1,131 @@
+version: 2
+
+models:
+  - name: fct_inventory_balance_daily
+    description: "Fact table for daily inventory balance per product and store."
+    columns:
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+      - name: store_id
+        description: "Foreign key to the store."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_id
+      - name: date_key
+        description: "Foreign key to the date dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_id
+      - name: qty_in
+        description: "Quantity received on this day."
+      - name: qty_out
+        description: "Quantity sold on this day."
+      - name: on_hand_quantity
+        description: "Quantity on hand at the end of the day."
+
+  - name: fct_product_profitability
+    description: "Fact table for product profitability analysis."
+    columns:
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+      - name: store_id
+        description: "Foreign key to the store."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_id
+      - name: total_qty_sold
+        description: "Total quantity sold."
+      - name: net_revenue
+        description: "Net revenue after taxes."
+      - name: total_estimated_cost
+        description: "Estimated cost of goods sold based on average purchase price."
+      - name: estimated_profit
+        description: "Estimated profit (Net Revenue - Estimated Cost)."
+      - name: profit_margin
+        description: "Calculated profit margin."
+
+  - name: fct_sales_performance
+    description: "Fact table for daily sales performance."
+    columns:
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+      - name: store_id
+        description: "Foreign key to the store."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_store')
+              field: store_id
+      - name: sales_date
+        description: "Date of the sales."
+      - name: date_key
+        description: "Foreign key to the date dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_id
+      - name: total_quantity
+        description: "Total quantity sold."
+      - name: gross_revenue
+        description: "Total revenue including taxes."
+      - name: total_tax
+        description: "Total excise tax collected."
+      - name: net_revenue
+        description: "Revenue excluding taxes."
+
+  - name: fct_vendor_performance
+    description: "Fact table for vendor performance analysis."
+    columns:
+      - name: vendor_id
+        description: "Foreign key to the vendor."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_vendors')
+              field: vendor_id
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_id
+      - name: po_date
+        description: "Date of the purchase order."
+      - name: date_key
+        description: "Foreign key to the date dimension."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_id
+      - name: total_quantity_ordered
+        description: "Total quantity ordered from the vendor."
+      - name: total_spend
+        description: "Total amount spent with the vendor."
+      - name: avg_lead_time_days
+        description: "Average lead time in days from PO to receipt."
+      - name: total_stores_supplied
+        description: "Number of unique stores supplied by the vendor for this product."

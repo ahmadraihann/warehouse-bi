@@ -1,0 +1,136 @@
+version: 2
+
+models:
+  - name: stg_products
+    description: "Staged product data containing product details and classification."
+    columns:
+      - name: product_id
+        description: "Primary key for the product."
+        tests:
+          - unique
+          - not_null
+      - name: description
+        description: "Description of the product."
+      - name: size
+        description: "Size of the product."
+      - name: volume
+        description: "Volume of the product."
+      - name: classification
+        description: "Classification category of the product."
+
+  - name: stg_purchases
+    description: "Staged purchase headers containing vendor and purchase order details."
+    columns:
+      - name: purchase_id
+        description: "Primary key for the purchase."
+        tests:
+          - unique
+          - not_null
+      - name: vendor_id
+        description: "Foreign key to the vendor."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_vendors')
+              field: vendor_id
+      - name: po_number
+        description: "Purchase Order number."
+      - name: po_date
+        description: "Date of the Purchase Order."
+      - name: invoice_date
+        description: "Date of the invoice."
+      - name: pay_date
+        description: "Date of payment."
+
+  - name: stg_purchase_items
+    description: "Staged purchase line items containing quantity and price details."
+    columns:
+      - name: purchase_item_id
+        description: "Primary key for the purchase item."
+        tests:
+          - unique
+          - not_null
+      - name: purchase_id
+        description: "Foreign key to the purchase header."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_purchases')
+              field: purchase_id
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+      - name: store_id
+        description: "Foreign key to the store."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_stores')
+              field: store_id
+      - name: quantity
+        description: "Quantity purchased."
+      - name: purchase_price
+        description: "Unit purchase price."
+      - name: total_amount
+        description: "Total amount for the line item."
+      - name: receiving_date
+        description: "Date the items were received."
+
+  - name: stg_sales
+    description: "Staged sales transaction data."
+    columns:
+      - name: sales_id
+        description: "Primary key for the sales transaction."
+        tests:
+          - unique
+          - not_null
+      - name: store_id
+        description: "Foreign key to the store."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_stores')
+              field: store_id
+      - name: product_id
+        description: "Foreign key to the product."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+      - name: sales_date
+        description: "Date of the sales transaction."
+      - name: quantity
+        description: "Quantity sold."
+      - name: sales_price
+        description: "Unit sales price."
+      - name: total_amount
+        description: "Total amount of the sale."
+      - name: excise_tax
+        description: "Excise tax applied to the sale."
+
+  - name: stg_stores
+    description: "Staged store data."
+    columns:
+      - name: store_id
+        description: "Primary key for the store."
+        tests:
+          - unique
+          - not_null
+      - name: city
+        description: "City where the store is located."
+
+  - name: stg_vendors
+    description: "Staged vendor data."
+    columns:
+      - name: vendor_id
+        description: "Primary key for the vendor."
+        tests:
+          - unique
+          - not_null
+      - name: vendor_name
+        description: "Name of the vendor."

@@ -1,3 +1,5 @@
+{{ config(materialized='view') }}
+
 select
     purchase_id,
     vendor_id,
