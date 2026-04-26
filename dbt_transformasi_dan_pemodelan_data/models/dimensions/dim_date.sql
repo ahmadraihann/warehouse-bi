@@ -5,8 +5,8 @@ with date_spine as (
     -- Extended to full calendar years for clean annual reporting.
     select generate_series::date as date_day
     from generate_series(
-        date '2003-01-01',
-        date '2010-12-31',
+        date '2010-01-01',
+        date '2025-12-31',
         interval '1 day'
     )
 )

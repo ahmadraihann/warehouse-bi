@@ -16,36 +16,30 @@ Sistem ini mengotomatiskan perjalanan data inventaris dari file CSV mentah hingg
 ## 📋 Prasyarat
 
 Pastikan Anda telah menginstal perangkat lunak berikut:
+- **Docker Desktop** (Sangat disarankan untuk pengguna Windows)
+- **Git**
+
+Jika ingin menjalankan secara manual (Linux/macOS):
 - **Python 3.10+**
-- **pip** (manajer paket Python)
-- **dbt-duckdb**
-- **Apache Airflow** (opsional, untuk orkestrasi)
+- **pip**
 
 ---
 
-## 🛠️ Persiapan & Instalasi
+## 🛠️ Persiapan Cepat (Docker)
 
-### 1. Clone Repositori
-```bash
-git clone https://github.com/ahmadraihann/warehouse-bi.git
-cd warehouse-bi
-```
+1. **Clone Repositori**:
+   ```bash
+   git clone https://github.com/ahmadraihann/warehouse-bi.git
+   cd warehouse-bi
+   ```
 
-### 2. Buat Virtual Environment
-```bash
-python -m venv venv
-# Di Windows:
-.\venv\Scripts\activate
-# Di Unix atau MacOS:
-source venv/bin/activate
-```
+2. **Inisialisasi & Jalankan**:
+   ```bash
+   docker-compose up airflow-init
+   docker-compose up -d
+   ```
 
-### 3. Instal Dependensi
-Instal kebutuhan inti dan paket dbt/airflow yang diperlukan:
-```bash
-pip install -r requirements.txt
-pip install dbt-duckdb apache-airflow
-```
+3. **Buka Airflow**: Akses `http://localhost:8080` (User/Pass: `airflow`).
 
 ---
 
@@ -106,32 +100,51 @@ dbt test
 
 ---
 
-## 🌪️ Orkestrasi Airflow
+## 🐳 Menjalankan dengan Docker (Rekomendasi)
 
-Untuk mengotomatiskan seluruh proses (Ingestion -> Transformasi -> Pengujian), gunakan DAG Airflow yang telah disediakan.
+Cara termudah dan paling stabil untuk menjalankan proyek ini (terutama di Windows) adalah menggunakan Docker.
 
-### 1. Konfigurasi Airflow
-Atur `AIRFLOW_HOME` ke direktori proyek Anda atau lokasi pilihan Anda:
+### 1. Inisialisasi Database Airflow
 ```bash
-export AIRFLOW_HOME=$(pwd)
+docker-compose up airflow-init
 ```
 
-### 2. Sesuaikan Path
-Buka `dags/warehouse_dag.py` dan pastikan variabel `BASE_DIR` sesuai dengan path proyek lokal Anda:
-```python
-BASE_DIR = r"c:\path\ke\warehouse-bi-anda"
-```
-
-### 3. Jalankan Airflow
-Inisialisasi DB dan jalankan webserver/scheduler:
+### 2. Jalankan Seluruh Layanan
 ```bash
-airflow db init
-airflow webserver --port 8080
-# Di terminal lain:
-airflow scheduler
+docker-compose up -d
+```
+*Perintah ini akan menjalankan Postgres (metadata), Airflow Webserver, dan Airflow Scheduler.*
+
+### 3. Akses Airflow UI
+Buka browser dan akses: `http://localhost:8080`
+- **Username**: `airflow`
+- **Password**: `airflow`
+
+Aktifkan DAG `warehouse_inventory_pipeline` untuk mulai menjalankan pipeline secara otomatis.
+
+---
+
+## 🛠️ Opsi 2: Setup Manual (Tanpa Docker)
+
+*Gunakan opsi ini hanya jika Anda berada di Linux/macOS atau menggunakan WSL2 di Windows.*
+
+### 1. Clone & Virtual Environment
+```bash
+git clone https://github.com/ahmadraihann/warehouse-bi.git
+cd warehouse-bi
+python -m venv venv
+# Aktifkan venv
 ```
 
-Akses UI di `http://localhost:8080` dan aktifkan DAG `warehouse_inventory_pipeline`.
+### 2. Instal Dependensi
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Eksekusi Manual
+- **Ingestion**: `python syntetic_data_generation/pipeline.py --fresh`
+- **dbt Run**: `cd dbt_transformasi_dan_pemodelan_data && dbt run`
+- **dbt Test**: `dbt test`
 
 ---
 

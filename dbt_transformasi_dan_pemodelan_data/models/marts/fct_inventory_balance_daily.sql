@@ -3,7 +3,7 @@
 select
     product_id,
     store_id,
-    date_key,
+    date_id,
     qty_in,
     qty_out,
     on_hand_quantity

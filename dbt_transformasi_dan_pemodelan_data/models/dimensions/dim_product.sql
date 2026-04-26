@@ -11,8 +11,6 @@ select
     product_id,
 
     -- attributes
-    product_id as brand_id,
-    description as brand_name,
     description,
     size,
     volume,
