@@ -51,7 +51,7 @@ final AS (
     SELECT
         product_id,
         store_id,
-        CAST(strftime(date, '%Y%m%d') AS INTEGER) AS date_key,
+        CAST(strftime(date, '%Y%m%d') AS INTEGER) AS date_id,
 
         qty_in,
         qty_out,

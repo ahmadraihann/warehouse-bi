@@ -13,15 +13,15 @@ WITH purchase_details AS (
         i.total_amount,
         i.receiving_date,
         DATEDIFF('day', h.po_date, i.receiving_date) AS lead_time_days
-    FROM {{ ref('stg_purchases') }} h
-    JOIN {{ ref('stg_purchase_items') }} i ON h.purchase_id = i.purchase_id
+    FROM {{ ref('int_purchases') }} h
+    JOIN {{ ref('int_purchase_items') }} i ON h.purchase_id = i.purchase_id
 )
 
 SELECT
     vendor_id,
     product_id,
     po_date,
-    CAST(strftime(po_date, '%Y%m%d') AS INTEGER) AS date_key,
+    CAST(strftime(po_date, '%Y%m%d') AS INTEGER) AS date_id,
     SUM(quantity) AS total_quantity_ordered,
     SUM(total_amount) AS total_spend,
     AVG(lead_time_days) AS avg_lead_time_days,

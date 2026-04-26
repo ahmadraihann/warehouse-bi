@@ -9,6 +9,6 @@
     )
 }}
 
-select * from {{ ref('int_products') }}
+select * from {{ source('inventory', 'products') }}
 
 {% endsnapshot %}

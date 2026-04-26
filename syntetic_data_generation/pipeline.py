@@ -8,8 +8,26 @@ def parse_args():
     parser.add_argument("--fresh", action="store_true")
     return parser.parse_args()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "../dbt_transformasi_dan_pemodelan_data", "inventory.duckdb")
+# Deteksi apakah sedang di dalam Docker atau lokal
+if os.path.exists("/opt/airflow/syntetic_data_generation"):
+    BASE_DIR = "/opt/airflow/syntetic_data_generation"
+    DB_PATH = "/opt/airflow/dbt_transformasi_dan_pemodelan_data/inventory.duckdb"
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(BASE_DIR, "../dbt_transformasi_dan_pemodelan_data", "inventory.duckdb")
+
+def init_db():
+    print(f"Checking database at {DB_PATH}...")
+    try:
+        con = duckdb.connect(DB_PATH)
+        con.execute("SELECT 1")
+        con.close()
+        print("✅ Database connection healthy")
+    except Exception as e:
+        print(f"⚠️ Database corrupt or incompatible: {e}")
+        if os.path.exists(DB_PATH):
+            os.remove(DB_PATH)
+            print("🔥 Corrupt database file removed. A new one will be created.")
 
 def drop_tables():
     con = duckdb.connect(DB_PATH)
@@ -182,7 +200,9 @@ def load_products():
 def load_vendors():
     con = duckdb.connect(DB_PATH)
 
-    df = pd.read_csv("data/PurchasesFINAL12312016.csv")
+    df = pd.read_csv(
+        os.path.join(BASE_DIR, "data", "PurchasesFINAL12312016.csv")
+    )
     df.columns = df.columns.str.strip()
 
     df = df[["VendorNumber", "VendorName"]].copy()
@@ -207,7 +227,9 @@ def load_vendors():
 def load_stores():
     con = duckdb.connect(DB_PATH)
 
-    df = pd.read_csv("data/EndInvFINAL12312016.csv")
+    df = pd.read_csv(
+        os.path.join(BASE_DIR, "data", "EndInvFINAL12312016.csv")
+    )
 
     df = df[["Store","City"]].drop_duplicates()
 
@@ -232,7 +254,9 @@ def load_stores():
 def load_purchases():
     con = duckdb.connect(DB_PATH)
 
-    df = pd.read_csv("data/InvoicePurchases12312016.csv")
+    df = pd.read_csv(
+        os.path.join(BASE_DIR, "data", "InvoicePurchases12312016.csv")
+    )
 
     df = df[[
         "VendorNumber","PONumber","PODate","InvoiceDate","PayDate"
@@ -268,7 +292,9 @@ def load_purchases():
 def load_purchase_items():
     con = duckdb.connect(DB_PATH)
 
-    df = pd.read_csv("data/PurchasesFINAL12312016.csv")
+    df = pd.read_csv(
+        os.path.join(BASE_DIR, "data", "PurchasesFINAL12312016.csv")
+    )
 
     df = df.rename(columns={
         "Store": "store_id",
@@ -310,7 +336,9 @@ def load_purchase_items():
 def load_sales():
     con = duckdb.connect(DB_PATH)
 
-    df = pd.read_csv("data/SalesFINAL12312016.csv")
+    df = pd.read_csv(
+        os.path.join(BASE_DIR, "data", "SalesFINAL12312016.csv")
+    )
 
     df["SalesDate"] = pd.to_datetime(
         df["SalesDate"],
@@ -348,8 +376,10 @@ if __name__ == "__main__":
 
     if args.fresh:
         print("🔥 FRESH MODE ON - Dropping all tables...")
+        init_db()
         drop_tables()
 
+    init_db()
     create_tables()
     load_products()
     load_vendors()
