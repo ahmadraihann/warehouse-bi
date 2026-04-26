@@ -1,15 +1,17 @@
+{{ config(materialized='table') }}
+
 with date_spine as (
     -- Date range covers all ClassicModels order dates (2003-01-06 to 2005-05-31).
     -- Extended to full calendar years for clean annual reporting.
     select generate_series::date as date_day
     from generate_series(
         date '2003-01-01',
-        date '2006-12-31',
+        date '2010-12-31',
         interval '1 day'
     )
 )
 select
-    date_day                                    as date_id,
+    CAST(strftime(date_day, '%Y%m%d') AS INTEGER) as date_id,
     date_day                                    as full_date,
     extract('year'    from date_day)::int       as year,
     extract('quarter' from date_day)::int       as quarter,

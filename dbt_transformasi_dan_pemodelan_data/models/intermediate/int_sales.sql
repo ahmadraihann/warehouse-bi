@@ -1,3 +1,5 @@
+{{ config(materialized='view') }}
+
 select
     sales_id,
     store_id,

@@ -114,19 +114,6 @@ def create_tables():
     )
     """)
 
-    # =====================
-    # INVENTORY SNAPSHOT
-    # =====================
-    con.execute("""
-    CREATE TABLE IF NOT EXISTS inventories (
-        store_id INTEGER,
-        product_id INTEGER,
-        quantity INTEGER,
-        last_updated DATE,
-        PRIMARY KEY (store_id, product_id)
-    )
-    """)
-
     con.close()
 
 def load_products():

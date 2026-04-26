@@ -39,6 +39,7 @@ Thumbs.db
 
 # Data
 data/
+!data/.gitkeep
 *.csv
 *.json
 *.parquet
@@ -59,3 +60,6 @@ dags/temp/
 # Environment variables
 .env
 .env.local
+
+dbt_transformasi_dan_pemodelan_data/dev.duckdb
+dbt_transformasi_dan_pemodelan_data/inventory.duckdb
